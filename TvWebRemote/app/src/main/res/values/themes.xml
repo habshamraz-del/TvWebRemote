@@ -1,0 +1,6 @@
+<resources>
+    <style name="AppTheme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/base</item>
+        <item name="android:colorAccent">@color/focus</item>
+    </style>
+</resources>

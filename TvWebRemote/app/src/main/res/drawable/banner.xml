@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 320x180 home-screen banner required by the Android TV launcher. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#14202B" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#1E2E3C" android:pathData="M40,34h240v112h-240z" />
+    <path android:fillColor="#28405A" android:pathData="M56,50h60v36h-60z" />
+    <path android:fillColor="#28405A" android:pathData="M204,50h60v36h-60z" />
+    <path android:fillColor="#28405A" android:pathData="M56,96h60v36h-60z" />
+    <path android:fillColor="#28405A" android:pathData="M130,96h60v36h-60z" />
+    <path android:fillColor="#28405A" android:pathData="M204,96h60v36h-60z" />
+    <path android:fillColor="#FFC24B" android:pathData="M126,46h68v44h-68z" />
+    <path android:fillColor="#28405A" android:pathData="M130,50h60v36h-60z" />
+</vector>

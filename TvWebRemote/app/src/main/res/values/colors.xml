@@ -1,0 +1,8 @@
+<resources>
+    <color name="base">#14202B</color>
+    <color name="surface">#1E2E3C</color>
+    <color name="raised">#28405A</color>
+    <color name="text">#EEF2F5</color>
+    <color name="muted">#9BB0C1</color>
+    <color name="focus">#FFC24B</color>
+</resources>
