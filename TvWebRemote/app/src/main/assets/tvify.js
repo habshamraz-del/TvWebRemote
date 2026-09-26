@@ -21,11 +21,16 @@
     '[contenteditable=""]', '[contenteditable=true]', '[tabindex]:not([tabindex="-1"])'
   ].join(',');
 
-  var SECTIONS = ['Search and forms', 'Site menu', 'With pictures', 'Links', 'Page footer'];
+  var SECTIONS = ['This site', 'Search and forms', 'Site menu', 'With pictures', 'Links', 'Page footer'];
 
   var host, root, ring, panel, titleEl, bodyEl, hint, hintTimer;
   var menuOpen = false, menuItems = [], menuTiles = [], menuIndex = 0, menuTouched = false;
   var current = null, ringQueued = false;
+  var mouseMode = !!CFG.mouse;
+
+  function tellApp(open) {
+    try { if (window.TvRemoteApp && window.TvRemoteApp.menuChanged) window.TvRemoteApp.menuChanged(open); } catch (e) { /* ignore */ }
+  }
 
   /* ------------------------------------------------------------------ */
   /* Element helpers                                                     */
@@ -156,6 +161,29 @@
       items.push(item);
     });
     return items.slice(0, 400);
+  }
+
+  /* Switches for this website, stored by the app (see BrowserActivity.Bridge). */
+  function settingItems() {
+    var app = window.TvRemoteApp;
+    if (!app || !app.getSiteSettings) return [];
+    var st;
+    try { st = JSON.parse(app.getSiteSettings()); } catch (e) { return []; }
+    var adsLabel = st.ads
+      ? 'Ad blocking is on' + (st.blocked ? ' (' + st.blocked + ' blocked)' : '')
+      : 'Ad blocking is off';
+    return [
+      { label: st.mouse ? 'Mouse pointer is on' : 'Mouse pointer is off', section: 'This site',
+        action: function () {
+          app.setSiteSetting('mouse', !st.mouse);
+          if (!st.mouse) closeMenu(true); // turning it on: go straight to the pointer
+          else renderMenu(true);
+        } },
+      { label: adsLabel, section: 'This site',
+        action: function () { app.setSiteSetting('ads', !st.ads); } },
+      { label: st.popups ? 'Pop-up blocking is on' : 'Pop-up blocking is off', section: 'This site',
+        action: function () { app.setSiteSetting('popups', !st.popups); renderMenu(true); } }
+    ];
   }
 
   /* ------------------------------------------------------------------ */
@@ -294,10 +322,11 @@
   /* TV menu                                                             */
   /* ------------------------------------------------------------------ */
 
-  function renderMenu() {
+  function renderMenu(keepPosition) {
     ensureHost();
+    var keepIndex = menuIndex;
     var keep = menuItems[menuIndex] && menuItems[menuIndex].el;
-    var items = menuCandidates();
+    var items = settingItems().concat(menuCandidates());
 
     titleEl.textContent = document.title || location.hostname;
     bodyEl.textContent = '';
@@ -324,10 +353,10 @@
           tile.appendChild(im);
         }
         var span = document.createElement('span');
-        span.textContent = (isTextField(it.el) ? '✎ ' : '') + it.label;
+        span.textContent = (it.el && isTextField(it.el) ? '✎ ' : '') + it.label;
         tile.appendChild(span);
         var index = ordered.length;
-        tile.addEventListener('click', function () { selectTile(index); activate(it.el); });
+        tile.addEventListener('click', function () { selectTile(index); runItem(it); });
         grid.appendChild(tile);
         menuTiles.push(tile);
         ordered.push(it);
@@ -336,17 +365,17 @@
     });
 
     menuItems = ordered;
-    if (!ordered.length) {
+    if (!ordered.some(function (it) { return it.el; })) {
       var empty = document.createElement('div');
       empty.className = 'empty';
       empty.textContent = document.readyState === 'complete'
         ? 'Nothing clickable found on this page yet. Press Back to see the full page.'
         : 'Loading the page…';
       bodyEl.appendChild(empty);
-      return;
     }
-    var idx = 0;
-    for (var i = 0; keep && i < ordered.length; i++) if (ordered[i].el === keep) { idx = i; break; }
+    if (!ordered.length) return;
+    var idx = keepPosition ? Math.min(keepIndex, ordered.length - 1) : 0;
+    for (var i = 0; !keepPosition && keep && i < ordered.length; i++) if (ordered[i].el === keep) { idx = i; break; }
     menuIndex = idx;
     selectTile(idx);
   }
@@ -375,8 +404,11 @@
     menuIndex = 0;
     menuItems = [];
     renderMenu();
+    // Start on the page's content rather than on this site's switches.
+    for (var i = 0; i < menuItems.length; i++) if (menuItems[i].el) { selectTile(i); break; }
     panel.hidden = false;
     ring.style.display = 'none';
+    tellApp(true);
     return 'handled';
   }
 
@@ -384,8 +416,11 @@
     if (!menuOpen) return;
     menuOpen = false;
     panel.hidden = true;
+    tellApp(false);
     updateRing();
-    if (!quiet) flashHint('Arrows move around the page. Hold OK for the TV menu.');
+    if (!quiet) flashHint(mouseMode
+      ? 'Arrows move the pointer, OK clicks. Hold OK for the TV menu.'
+      : 'Arrows move around the page. Hold OK for the TV menu.');
   }
 
   function toggleMenu() {
@@ -399,7 +434,7 @@
 
   function updateRing() {
     if (!ring) return;
-    if (menuOpen || !current || !current.isConnected || !isRendered(current)) {
+    if (menuOpen || mouseMode || !current || !current.isConnected || !isRendered(current)) {
       ring.style.display = 'none';
       return;
     }
@@ -496,10 +531,15 @@
     return 'handled';
   }
 
+  function runItem(it) {
+    if (it.action) { it.action(); return 'handled'; }
+    return activate(it.el);
+  }
+
   function enter() {
     if (menuOpen) {
       var it = menuItems[menuIndex];
-      return it ? activate(it.el) : 'handled';
+      return it ? runItem(it) : 'handled';
     }
     var ae = document.activeElement;
     if (isTextField(ae)) return ae.value ? 'native' : 'input'; // submit a filled box, else type
@@ -507,6 +547,31 @@
     var first = firstInView(pageCandidates(), 'down');
     if (first) { setCurrent(first); return 'handled'; }
     return 'unhandled';
+  }
+
+  function setMouseMode(on) {
+    mouseMode = !!on;
+    updateRing();
+    return 'handled';
+  }
+
+  /* Mouse pointer pushed against a screen edge: scroll whatever is under it.
+     Positions and amounts arrive as fractions of the screen size. */
+  function scrollAt(fx, fy, sdx, sdy) {
+    var x = fx * innerWidth, y = fy * innerHeight;
+    var dx = sdx * innerWidth, dy = sdy * innerHeight;
+    for (var el = document.elementFromPoint(x, y); el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      var s = getComputedStyle(el);
+      var canY = dy && /(auto|scroll)/.test(s.overflowY) && el.scrollHeight > el.clientHeight + 2;
+      var canX = dx && /(auto|scroll)/.test(s.overflowX) && el.scrollWidth > el.clientWidth + 2;
+      if (canX || canY) {
+        var bx = el.scrollLeft, by = el.scrollTop;
+        el.scrollBy(dx, dy);
+        if (el.scrollLeft !== bx || el.scrollTop !== by) return 'handled';
+      }
+    }
+    window.scrollBy(dx, dy);
+    return 'handled';
   }
 
   function back() {
@@ -538,6 +603,12 @@
     if (menuOpen) moveMenu(dir); else movePage(dir);
   }, true);
 
+  // Links meant to open in a new tab open in this same screen instead.
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest && e.target.closest('a[target]');
+    if (a && a.target && a.target.toLowerCase() !== '_self') a.removeAttribute('target');
+  }, true);
+
   window.addEventListener('scroll', queueRing, true);
   window.addEventListener('resize', queueRing);
 
@@ -557,11 +628,15 @@
     enter: enter,
     back: back,
     toggleMenu: toggleMenu,
+    setMouseMode: setMouseMode,
+    scrollAt: scrollAt,
     openMenu: openMenu,
     rescan: renderMenu
   };
 
   ensureHost();
   if (CFG.autoOpen) openMenu();
-  else flashHint('Arrows move around the page. Hold OK for the TV menu.');
+  else flashHint(mouseMode
+    ? 'Arrows move the pointer, OK clicks. Hold OK for the TV menu.'
+    : 'Arrows move around the page. Hold OK for the TV menu.');
 })();

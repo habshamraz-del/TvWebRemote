@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mouse pointer. The tip is at the top-left corner (0,0) so clicks land exactly there. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp" android:height="36dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#14202B"
+        android:strokeWidth="1.4"
+        android:strokeLineJoin="round"
+        android:pathData="M1,1 L1,18 L5.5,13.8 L8.6,20.6 L11.4,19.4 L8.4,12.8 L14.6,12.8 Z" />
+</vector>

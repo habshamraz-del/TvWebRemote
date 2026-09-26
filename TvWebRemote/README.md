@@ -15,10 +15,27 @@ An Android TV app that opens any website and makes it usable with a TV remote.
 | Hold OK, or MENU  | Show / hide the TV menu                                    |
 | Back              | Close the TV menu, then go to the previous page, then home |
 
+## Mouse pointer
+
+For buttons that are hard to reach, turn on **Mouse pointer** in the "This site" row of the
+TV menu. Arrows move the pointer (hold to speed up), OK clicks, and pushing against a screen
+edge scrolls. Hold OK to get back to the TV menu, where the same switch turns it off.
+The app remembers it per site.
+
+## Ads and pop-ups
+
+The top of the TV menu has switches for the site you're on: **Ad blocking** and
+**Pop-up blocking**. Both are on by default and the app remembers your choice per site.
+Links that normally open a new tab open in the same screen.
+
+The ad list is the Steven Black hosts list (MIT license, github.com/StevenBlack/hosts).
+A copy is built in, and the app downloads a fresh one once a week.
+
 ## Build without Android Studio (GitHub)
 
 1. Make a free GitHub account and create a new **public** repository (e.g. `TvWebRemote`).
-2. Upload everything in this folder, including the `.github` folder.
+2. Upload this folder, then add the build file at `.github/workflows/build.yml`
+   in the top level of the repository.
 3. Open the repository's **Actions** tab and wait for "Build APK" to show a green check.
 4. The APK is now at:
    `https://github.com/YOUR-USERNAME/TvWebRemote/releases/latest/download/TvWebRemote.apk`
@@ -48,6 +65,8 @@ You can also test on the Android Studio "Television" emulator.
 
 ## Known limits
 
+- `tvwebremote.keystore` is the key the app is signed with. Keep it in the repository:
+  every version must use the same key or the TV won't install updates over the old app.
 - Google sign-in refuses to run inside embedded browsers, so sites that need a Google
   login may not let you sign in.
 - DRM video services (Netflix, Disney+, etc.) won't play in a WebView.
